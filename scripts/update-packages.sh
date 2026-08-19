@@ -141,16 +141,17 @@ echo " "
 echo "=========================================="
 echo "Package updates completed!"
 echo "=========================================="
-# DAE 完整版（推荐）
-git clone --depth=1 https://github.com/douglarek/dae-openwrt.git dae-tmp
-if [ -d "dae-tmp/net/dae" ]; then
-    cp -rf dae-tmp/net/dae ./dae
-    echo "Installed: dae"
+# 清理旧包
+rm -rf ./daed ./luci-app-daed ./dae
+
+# 使用 QiuSimons 的完整仓库
+git clone --depth=1 https://github.com/QiuSimons/luci-app-daed package/dae-tmp
+
+if [ -d "package/dae-tmp" ]; then
+  # 根据仓库实际结构调整复制
+  cp -rf package/dae-tmp/* ./ 2>/dev/null || true
+  # 或者更精确地：
+  # mv package/dae-tmp/daed ./daed
+  # mv package/dae-tmp/luci-app-daed ./luci-app-daed
 fi
-rm -rf dae-tmp
-
-# luci-app-dae（轻量界面）
-# UPDATE_PACKAGE "luci-app-dae" "Pacalini/luci-app-dae" "main" "name"
-
-# 或者用带完整管理界面的（二选一）
-UPDATE_PACKAGE "luci-app-daed" "QiuSimons/luci-app-daed" "master" "name"
+rm -rf package/dae-tmp
