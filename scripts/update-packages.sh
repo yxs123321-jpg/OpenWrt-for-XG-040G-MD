@@ -40,11 +40,9 @@ UPDATE_PACKAGE() {
 
 	# 处理克隆的仓库
 	if [[ "$PKG_SPECIAL" == "pkg" ]]; then
-		# 从大杂烩仓库中提取特定包
 		find ./$REPO_NAME/*/ -maxdepth 3 -type d -iname "*$PKG_NAME*" -prune -exec cp -rf {} ./ \;
 		rm -rf ./$REPO_NAME/
 	elif [[ "$PKG_SPECIAL" == "name" ]]; then
-		# 重命名仓库
 		mv -f $REPO_NAME $PKG_NAME
 	fi
 
@@ -63,7 +61,6 @@ PATCH_PASSWALL_GLOBAL_LUA() {
 			FOUND=1
 			echo "Applying PassWall Lua compatibility hotfix: $FILE"
 
-			# Guard optional form fields to avoid nil-index runtime errors.
 			sed -i 's#local dns_shunt_val = s.fields\["dns_shunt"\]:formvalue(section)#local dns_shunt_val = (s.fields["dns_shunt"] and s.fields["dns_shunt"]:formvalue(section)) or ""#g' "$FILE"
 			sed -i 's#s.fields\["dns_mode"\]:formvalue(section) == "xray" or s.fields\["smartdns_dns_mode"\]:formvalue(section) == "xray"#((s.fields["dns_mode"] and s.fields["dns_mode"]:formvalue(section)) == "xray") or ((s.fields["smartdns_dns_mode"] and s.fields["smartdns_dns_mode"]:formvalue(section)) == "xray")#g' "$FILE"
 			sed -i 's#s.fields\["dns_mode"\]:formvalue(section) == "sing-box" or s.fields\["smartdns_dns_mode"\]:formvalue(section) == "sing-box"#((s.fields["dns_mode"] and s.fields["dns_mode"]:formvalue(section)) == "sing-box") or ((s.fields["smartdns_dns_mode"] and s.fields["smartdns_dns_mode"]:formvalue(section)) == "sing-box")#g' "$FILE"
@@ -77,7 +74,7 @@ PATCH_PASSWALL_GLOBAL_LUA() {
 
 echo "Starting package updates..."
 
-# 首先删除 feeds 中的 sing-box 相关包，避免与第三方包冲突
+# 删除 feeds 中冲突的 sing-box
 echo " "
 echo "=========================================="
 echo "Removing conflicting sing-box packages from feeds..."
@@ -86,14 +83,14 @@ rm -rf ../feeds/packages/net/sing-box
 rm -rf ../package/feeds/packages/sing-box
 echo "Done removing sing-box from feeds"
 
-# HomeProxy (代理软件) - 使用第5个参数指定额外要删除的包名
+# HomeProxy
 UPDATE_PACKAGE "homeproxy" "immortalwrt/homeproxy" "master"
 
 # Argon 主题
 UPDATE_PACKAGE "luci-theme-argon" "jerrykuku/luci-theme-argon" "master"
 UPDATE_PACKAGE "luci-app-argon-config" "jerrykuku/luci-app-argon-config" "master"
 
-# 修改 LuCI 默认主题为 Argon（保留 bootstrap 包可共存）
+# 设置默认主题为 Argon
 echo " "
 echo "=========================================="
 echo "Setting default LuCI theme to argon..."
@@ -106,12 +103,11 @@ else
 	echo "WARNING: No LuCI collection Makefile found, skip theme default patch"
 fi
 
-# PassWall (代理软件)
+# PassWall
 UPDATE_PACKAGE "passwall" "Openwrt-Passwall/openwrt-passwall" "main" "pkg"
 PATCH_PASSWALL_GLOBAL_LUA
 
-# OpenWrt 25.12 下 shadowsocksr-libev 的上游归档内容已变化，旧 MIRROR_HASH 失效。
-# 先禁用 SSR 组件，避免 passwall 选择该包导致下载阶段直接失败。
+# 禁用 PassWall 里有问题的 SSR 组件
 PASSWALL_MAKEFILE="./luci-app-passwall/Makefile"
 if [ -f "$PASSWALL_MAKEFILE" ]; then
 	echo "Patching PassWall defaults to disable broken ShadowsocksR components..."
@@ -137,19 +133,14 @@ if [ -d "openwrt-passwall-packages" ]; then
 	rm -rf openwrt-passwall-packages
 fi
 
-echo " "
-echo "=========================================="
-echo "Package updates completed!"
-echo "=========================================="
 # ==========================================
-# DAE（OpenWrt main 稳定版）
+# DAE（稳定版）
 # ==========================================
 echo " "
 echo "=========================================="
 echo "Installing DAE..."
 echo "=========================================="
 
-# 清理旧包
 rm -rf ./dae ./luci-app-dae ./daed ./luci-app-daed
 
 # 安装 dae 核心
@@ -162,7 +153,10 @@ else
 fi
 rm -rf dae-tmp
 
-# 安装 luci-app-dae（轻量界面）
+# 安装 luci-app-dae
 UPDATE_PACKAGE "luci-app-dae" "Pacalini/luci-app-dae" "main" "name"
 
-echo "DAE installation completed"
+echo " "
+echo "=========================================="
+echo "Package updates completed!"
+echo "=========================================="
