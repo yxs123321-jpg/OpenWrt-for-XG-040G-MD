@@ -1,6 +1,6 @@
 #!/bin/bash
 # 安装和更新第三方软件包
-# 此脚本在 openwrt/package/ 目录下运行，在 feeds install 之后执行
+# 此脚本在 openwrt/package/ 目录下运行
 
 UPDATE_PACKAGE() {
 	local PKG_NAME=$1
@@ -15,7 +15,6 @@ UPDATE_PACKAGE() {
 	echo "Processing: $PKG_NAME from $PKG_REPO"
 	echo "=========================================="
 
-	# 删除 feeds 中可能存在的同名软件包
 	for NAME in "${PKG_LIST[@]}"; do
 		echo "Search directory: $NAME"
 		local FOUND_DIRS=$(find ../feeds/luci/ ../feeds/packages/ -maxdepth 3 -type d -iname "*$NAME*" 2>/dev/null)
@@ -30,7 +29,6 @@ UPDATE_PACKAGE() {
 		fi
 	done
 
-	# 克隆 GitHub 仓库
 	git clone --depth=1 --single-branch --branch "$PKG_BRANCH" "https://github.com/$PKG_REPO.git"
 
 	if [ ! -d "$REPO_NAME" ]; then
@@ -38,7 +36,6 @@ UPDATE_PACKAGE() {
 		return 1
 	fi
 
-	# 处理克隆的仓库
 	if [[ "$PKG_SPECIAL" == "pkg" ]]; then
 		find ./$REPO_NAME/*/ -maxdepth 3 -type d -iname "*$PKG_NAME*" -prune -exec cp -rf {} ./ \;
 		rm -rf ./$REPO_NAME/
@@ -60,7 +57,6 @@ PATCH_PASSWALL_GLOBAL_LUA() {
 		if [ -f "$FILE" ]; then
 			FOUND=1
 			echo "Applying PassWall Lua compatibility hotfix: $FILE"
-
 			sed -i 's#local dns_shunt_val = s.fields\["dns_shunt"\]:formvalue(section)#local dns_shunt_val = (s.fields["dns_shunt"] and s.fields["dns_shunt"]:formvalue(section)) or ""#g' "$FILE"
 			sed -i 's#s.fields\["dns_mode"\]:formvalue(section) == "xray" or s.fields\["smartdns_dns_mode"\]:formvalue(section) == "xray"#((s.fields["dns_mode"] and s.fields["dns_mode"]:formvalue(section)) == "xray") or ((s.fields["smartdns_dns_mode"] and s.fields["smartdns_dns_mode"]:formvalue(section)) == "xray")#g' "$FILE"
 			sed -i 's#s.fields\["dns_mode"\]:formvalue(section) == "sing-box" or s.fields\["smartdns_dns_mode"\]:formvalue(section) == "sing-box"#((s.fields["dns_mode"] and s.fields["dns_mode"]:formvalue(section)) == "sing-box") or ((s.fields["smartdns_dns_mode"] and s.fields["smartdns_dns_mode"]:formvalue(section)) == "sing-box")#g' "$FILE"
@@ -74,23 +70,18 @@ PATCH_PASSWALL_GLOBAL_LUA() {
 
 echo "Starting package updates..."
 
-# 删除 feeds 中冲突的 sing-box
 echo " "
 echo "=========================================="
-echo "Removing conflicting sing-box packages from feeds..."
+echo "Removing conflicting sing-box packages..."
 echo "=========================================="
 rm -rf ../feeds/packages/net/sing-box
 rm -rf ../package/feeds/packages/sing-box
-echo "Done removing sing-box from feeds"
 
-# HomeProxy
 UPDATE_PACKAGE "homeproxy" "immortalwrt/homeproxy" "master"
 
-# Argon 主题
 UPDATE_PACKAGE "luci-theme-argon" "jerrykuku/luci-theme-argon" "master"
 UPDATE_PACKAGE "luci-app-argon-config" "jerrykuku/luci-app-argon-config" "master"
 
-# 设置默认主题为 Argon
 echo " "
 echo "=========================================="
 echo "Setting default LuCI theme to argon..."
@@ -99,15 +90,11 @@ COLLECTION_MAKEFILES=$(find ../feeds/luci/collections/ -type f -name "Makefile" 
 if [ -n "$COLLECTION_MAKEFILES" ]; then
 	sed -i "s/luci-theme-bootstrap/luci-theme-argon/g" $COLLECTION_MAKEFILES
 	echo "Done setting default LuCI theme to argon"
-else
-	echo "WARNING: No LuCI collection Makefile found, skip theme default patch"
 fi
 
-# PassWall
 UPDATE_PACKAGE "passwall" "Openwrt-Passwall/openwrt-passwall" "main" "pkg"
 PATCH_PASSWALL_GLOBAL_LUA
 
-# 禁用 PassWall 里有问题的 SSR 组件
 PASSWALL_MAKEFILE="./luci-app-passwall/Makefile"
 if [ -f "$PASSWALL_MAKEFILE" ]; then
 	echo "Patching PassWall defaults to disable broken ShadowsocksR components..."
@@ -115,7 +102,6 @@ if [ -f "$PASSWALL_MAKEFILE" ]; then
 	sed -i '/config PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Libev_Server/,/default n/s/default n/default n/' "$PASSWALL_MAKEFILE"
 fi
 
-# PassWall 依赖包
 echo " "
 echo "=========================================="
 echo "Installing PassWall dependencies..."
@@ -134,7 +120,7 @@ if [ -d "openwrt-passwall-packages" ]; then
 fi
 
 # ==========================================
-# DAE（稳定版）
+# DAE
 # ==========================================
 echo " "
 echo "=========================================="
@@ -143,7 +129,6 @@ echo "=========================================="
 
 rm -rf ./dae ./luci-app-dae ./daed ./luci-app-daed
 
-# 安装 dae 核心
 git clone --depth=1 https://github.com/douglarek/dae-openwrt.git dae-tmp
 if [ -d "dae-tmp/net/dae" ]; then
   cp -rf dae-tmp/net/dae ./dae
@@ -153,7 +138,6 @@ else
 fi
 rm -rf dae-tmp
 
-# 安装 luci-app-dae
 UPDATE_PACKAGE "luci-app-dae" "Pacalini/luci-app-dae" "main" "name"
 
 echo " "
